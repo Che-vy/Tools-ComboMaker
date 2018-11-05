@@ -6,18 +6,21 @@ using System;
 
 public class ComboMakerEditor : EditorWindow
 {
+    private Rect windowPos;
     private bool initialized;
     private List<string> characters;
     private List<string> damagetypes;
     private float[] damagevalues;
     private List<string> abilitylist;
     private List<List<ComboClass>> combolist;
+    private Dictionary<string, Animation> animationlist;
 
     private int selectedPopupIndex_character = 0;
     private int selectedPopupIndex_damage = 0;
     private int selectedPopupIndex_damagevalues = 0;
     private int selectedPopupIndex_ability = 0;
     private int selectedPopupIndex_combo = 0;
+    private bool IsFoldoutUnfolded = true;
     private bool IsComboPlaying;
 
     [MenuItem("Personal Tools/Combo Maker")]
@@ -30,6 +33,8 @@ public class ComboMakerEditor : EditorWindow
 
     public void OnEnable()
     {
+        windowPos = GetWindow<ComboMakerEditor>("ComboMakerEditor").position;
+
         #region Folder Check
         string path = Application.dataPath + "/StreamingAssets/data/cb";
 
@@ -41,16 +46,16 @@ public class ComboMakerEditor : EditorWindow
             {
                 path = Application.dataPath + "/StreamingAssets";
 
-                AssetDatabase.CreateFolder(path, "data");
+                AssetDatabase.CreateFolder("ComboMaker/Assets/StreamingAssets", "data");
 
             }
             else
             {
-                AssetDatabase.CreateFolder(path, "cb");
+                AssetDatabase.CreateFolder("ComboMaker/Assets/StreamingAssets", "cb");
             }
         }
 
-        path = Application.dataPath + "/StreamingAssets/data/cb";
+        // path = Application.dataPath + "/StreamingAssets/data/cb";
         #endregion
 
         #region Data Initialization
@@ -67,7 +72,7 @@ public class ComboMakerEditor : EditorWindow
         abilitylist.Add("Beacon of Light");
         abilitylist.Add("Beacon of Dark");
         abilitylist.Add("Beacon of Fire");
-        abilitylist.Add("Beacon of Rock");
+        abilitylist.Add("Beacon of Stone");
 
 
         damagetypes = new List<string>();
@@ -85,7 +90,9 @@ public class ComboMakerEditor : EditorWindow
 
         combolist = new List<List<ComboClass>>();
         combolist.Add(new List<ComboClass>());
-
+        combolist[0].Add(new ComboClass(KeyCode.B, new Ability(), new Animation(), 0.4f, Common.Accuracy.GOOD, 2));
+        combolist[0].Add(new ComboClass(KeyCode.W, new Ability(), new Animation(), 0.2f, Common.Accuracy.PERFECT, 2));
+        combolist[0].Add(new ComboClass(KeyCode.A, new Ability(), new Animation(), 1f, Common.Accuracy.WEAK, 2));
 
 
         #endregion
@@ -134,10 +141,23 @@ public class ComboMakerEditor : EditorWindow
         EditorGUILayout.EndVertical();
         EditorGUILayout.EndHorizontal();
         #endregion
+        IsFoldoutUnfolded = EditorGUILayout.Foldout(IsFoldoutUnfolded, "ok", true);
+        if (IsFoldoutUnfolded)
+        {
+            EditorGUI.indentLevel++;
+            foreach (ComboClass cc in combolist[0]) {
+#pragma warning disable CS0618 // Type or member is obsolete
+                EditorGUILayout.ObjectField(cc.animation, typeof(Animation));
+#pragma warning restore CS0618 // Type or member is obsolete
 
+            }
+
+            EditorGUI.indentLevel--;
+        }
+        EditorGUI.indentLevel = 0;
         EditorGUILayout.Separator();
 
-        #region recorder
+        #region record/play btn
         EditorGUILayout.BeginHorizontal();
         EditorGUILayout.BeginVertical();
         if (!IsComboPlaying)
@@ -161,29 +181,34 @@ public class ComboMakerEditor : EditorWindow
         }
         //GUILayout.Button("");
         EditorGUILayout.EndVertical();
+        #endregion
+
+        #region Timeline
         EditorGUILayout.BeginHorizontal();
+        float xOffset = 4, yOffset = 140;
+
         for (int i = 0; i < combolist[selectedPopupIndex_ability].Count; i++)
         {
             //if (combolist[selectedPopupIndex_ability][selectedPopupIndex_combo] == null)
-            combolist[selectedPopupIndex_ability][selectedPopupIndex_combo] = new ComboClass(accuracy: Common.Accuracy.GOOD, timewindow: 500, keycode: KeyCode.A, damage: 2, ability: new Ability());
-
-            Color c = new Color();
-            switch (combolist[selectedPopupIndex_ability][selectedPopupIndex_combo].accuracy)
-            {
-                case Common.Accuracy.WEAK:
-                    c = new Color(255, 240, 240);
-                    break;
-                case Common.Accuracy.GOOD:
-                    c = new Color(240, 240, 255);
-                    break;
-                case Common.Accuracy.PERFECT:
-                    c = new Color(240, 240, 255);
-                    break;
-                default: break;
-            }
+            ComboClass cc = combolist[selectedPopupIndex_ability][i];//new ComboClass(accuracy: Common.Accuracy.GOOD, timewindow: 30f, keycode: KeyCode.A, damage: 2, ability: new Ability());
 
             //use GUI.Box because editorgui unusable in editorwindow
-            EditorGUI.DrawRect(new Rect(100, 100, combolist[selectedPopupIndex_ability][selectedPopupIndex_combo].timewindow, 100), c);
+            //EditorGUI.DrawRect(new Rect(100, 100, combolist[selectedPopupIndex_ability][selectedPopupIndex_combo].timewindow, 100), c);
+            var centeredStyle = GUI.skin.GetStyle("Button");
+            centeredStyle.alignment = TextAnchor.MiddleCenter;
+
+            //GUI.Box(new Rect(windowPos.x + xOffset,
+            //    windowPos.y + yOffset,
+            //    cc.timewindow * 100,
+            //    100),
+            //    cc.keycode.ToString() + "\n " + (float)cc.timewindow + "s",
+            //    centeredStyle);
+
+            GUILayout.Box(new GUIContent(cc.keycode.ToString() + "\n " + (float)cc.timewindow + "s"), GUILayout.Width(cc.timewindow * 100), GUILayout.MaxHeight(50));
+            
+
+            xOffset = cc.timewindow;
+
         }
 
         EditorGUILayout.EndHorizontal();
@@ -210,5 +235,29 @@ public class ComboMakerEditor : EditorWindow
 
 
     }
+
+    public void OnInspectorUpdate()
+    {
+        this.Repaint();
+    }
+
+
+    public Color SwitchColor(Common.Accuracy accuracy)
+    {
+        switch (accuracy)
+        {
+            case Common.Accuracy.WEAK:
+                return new Color(255, 240, 240);
+            case Common.Accuracy.GOOD:
+                return new Color(240, 240, 255);
+            case Common.Accuracy.PERFECT:
+                return new Color(240, 240, 255);
+            default: return Common.PINK;
+        }
+
+
+    }
+
+
 
 }
